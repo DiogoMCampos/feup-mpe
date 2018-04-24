@@ -4,7 +4,7 @@ import re
 import csv
 
 opener = build_opener()
-opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
+opener.addheaders = [('User-Agent', '')]
 
 
 def get_flight_link(a_element):
