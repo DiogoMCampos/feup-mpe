@@ -27,6 +27,10 @@ def parse_flight(link):
     eta = arrival_info.find('h2')
     this_flight['estimated_arrival_time'] = eta.text if eta else ''
 
+    date = arrival_info.findAll(text=re.compile('Date: '))
+    if date:
+        this_flight['date'] = date[0].split(': ')[1].strip()
+
     sat = arrival_info.findAll(text=re.compile('Scheduled Arrival Time: '))
     if sat:
         this_flight['scheduled_arrival_time'] = sat[0].split(': ')[1].strip()
@@ -57,7 +61,7 @@ def parse_flight(link):
     return this_flight, duplicate_links
 
 
-ARRIVALS_URL = 'https://www.airport-jfk.com/arrivals.php?tp=6'
+ARRIVALS_URL = 'https://www.airport-jfk.com/arrivals.php'
 ARRIVALS_PAGE = OPENER.open(ARRIVALS_URL)
 
 SOUP = BeautifulSoup(ARRIVALS_PAGE, 'lxml')
@@ -80,7 +84,7 @@ for flight in FLIGHTS_HTML:
 KEYS = ['id', 'date', 'estimated_arrival_time', 'scheduled_arrival_time',
         'terminal', 'gate', 'baggage', 'plane']
 
-with open('flights_24_04_2018_06_12.csv', 'w') as output_file:
+with open('data/flights_24_04_2018_06_12.csv', 'w') as output_file:
     DICT_WRITER = csv.DictWriter(output_file, KEYS)
     DICT_WRITER.writeheader()
     DICT_WRITER.writerows(FLIGHTS)
