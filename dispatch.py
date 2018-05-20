@@ -52,6 +52,21 @@ def get_job_size(plane_model):
     # other planes, <= 50 people, 5 minutes
     return datetime.timedelta(minutes=5 + random.randrange(-5, 5))
 
+def print_job(jtp):
+    """ print the job in a user friendly way """
+
+    if not jtp:
+        print(jtp)
+
+    else:
+        print(''.join(['code: ', jtp['code']]))
+        print(''.join(['size: ', str(jtp['size'])]))
+        print(''.join(['release date: ', str(jtp['release_date'])]))
+        print(''.join(['start: ', str(jtp['start_time'])]))
+        print(''.join(['terminal: ', str(jtp['terminal'])]))
+        print(''.join(['conveyor: ', str(jtp['conveyor'])]))
+        print(''.join(['flow_time: ', str(jtp['flow_time'])]))
+
 def parse_time(time):
     """ parse the time into an object """
 
@@ -155,7 +170,12 @@ for terminal in TERMINALS:
 
 # where the scheduling will be stored
 JOBS = []
+
 max_flow_time = datetime.timedelta(0)
+mft_job = {}
+
+print_job(mft_job)
+print(''.join(['maximum flow time: ', str(max_flow_time)]))
 
 # do the actual scheduling
 for terminal in TERMINALS:
@@ -181,16 +201,18 @@ for terminal in TERMINALS:
         terminal['conveyors'][conveyor] = flight.estimated_arrival_time + flight.size
 
         flow_time = job['start_time'] + flight.size - flight.estimated_arrival_time
-        max_flow_time = max_flow_time if max_flow_time >= flow_time else flow_time
+        job['flow_time'] = flow_time
+
+        if flow_time > max_flow_time:
+            max_flow_time = flow_time
+            mft_job = job
+
         JOBS.append(job)
 
 
-print(max_flow_time)
 for job in JOBS:
-    print(''.join(['code: ', job['code']]))
-    print(''.join(['size: ', str(job['size'])]))
-    print(''.join(['release date: ', str(job['release_date'])]))
-    print(''.join(['start: ', str(job['start_time'])]))
-    print(''.join(['terminal: ', str(job['terminal'])]))
-    print(''.join(['conveyor: ', str(job['conveyor'])]))
+    print_job(job)
     print()
+
+print('Maximum flow time')
+print_job(mft_job)
