@@ -4,9 +4,36 @@
 import sys
 import random
 import datetime
-from collections import deque
+import functools
+import heapq
 
 random.seed()
+
+@functools.total_ordering
+class Flight:
+    """ represents a flight read from the file """
+
+    def __init__(self, plane_dict):
+        pd_eat = plane_dict['estimated_arrival_time']
+        pd_sat = plane_dict['scheduled_arrival_time']
+
+        self.code = plane_dict['code']
+        self.estimated_arrival_time = pd_eat if pd_eat else pd_sat
+        self.terminal = plane_dict['terminal']
+        self.gate = plane_dict['gate']
+        self.baggage = plane_dict['baggage']
+        self.plane = plane_dict['plane']
+        self.size = plane_dict['size']
+
+    def __str__(self):
+        return self.__dict__
+
+    def __lt__(self, other):
+        return self.estimated_arrival_time < other.estimated_arrival_time
+
+    def __eq__(self, other):
+        return self.estimated_arrival_time == other.estimated_arrival_time
+
 
 def get_first_available_time(term):
     """ return the conveyor that is available first """
@@ -89,7 +116,7 @@ def read_flights(file):
         read_flight['size'] = get_baggage(line[7])
 
 
-        flights_array.append(read_flight)
+        flights_array.append(Flight(read_flight))
 
     return [flights_array, earliest_release_date]
 
@@ -99,10 +126,11 @@ TERMINALS = [{} for i in range(0, 9)]
 
 
 for terminal in TERMINALS:
-    terminal['flight_queue'] = deque([])
+    terminal['flight_queue'] = []
 
 INPUT_FILE = open(sys.argv[1], "r")
 [FLIGHTS, EARLIEST_DATE] = read_flights(INPUT_FILE)
+INPUT_FILE.close()
 
 # set up conveyors to be available at the earliest release date possible
 # set up conveyors in terminal 1 to 5
@@ -114,7 +142,10 @@ TERMINALS[7]['conveyors'] = [EARLIEST_DATE, EARLIEST_DATE, EARLIEST_DATE]
 TERMINALS[8]['conveyors'] = [EARLIEST_DATE, EARLIEST_DATE]
 
 for flight in FLIGHTS:
-    flight_terminal = int(flight['terminal'])
+    flight_terminal = int(flight.terminal)
     TERMINALS[flight_terminal]['flight_queue'].append(flight)
 
-INPUT_FILE.close()
+for terminal in TERMINALS:
+    heapq.heapify(terminal['flight_queue'])
+
+
