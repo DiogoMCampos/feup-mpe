@@ -35,29 +35,33 @@ class Flight:
         return self.estimated_arrival_time == other.estimated_arrival_time
 
 
-def get_first_available_time(term):
+def get_earliest_available_conveyor(term):
     """ return the conveyor that is available first """
-    return term.index(min(terminal['conveyors']))
+    return term['conveyors'].index(min(term['conveyors']))
 
-def get_baggage(plane_model):
-    """ get the number of bags according to the airplane model """
+def get_job_size(plane_model):
+    """ get the duration of the job according to the airplane model """
+    # around 250 people, ~30 minutes
     if plane_model == "Airbus" or plane_model == "Boeing":
-        return 250 + random.randrange(-40, 40)
+        return datetime.timedelta(minutes=30 + random.randrange(-15, 15))
 
+    # around 100 people, ~15 minutes
     if plane_model == "Cessna" or plane_model == "Embraer":
-        return 100 + random.randrange(-20, 20)
+        return datetime.timedelta(minutes=15 + random.randrange(-10, 10))
 
-    return 50 + random.randrange(-5, 5)
+    # other planes, <= 50 people, 5 minutes
+    return datetime.timedelta(minutes=5 + random.randrange(-5, 5))
 
 def parse_time(time):
     """ parse the time into an object """
 
     [hours_and_minutes, period] = time.split(' ')
     [hours, minutes] = hours_and_minutes.split(':')
+
     date = {}
-    date['seconds'] = 0
     date['minutes'] = int(minutes)
 
+    # Convert 12 hour to 24 hour format
     if period == 'am':
         if hours == '12':
             date['hours'] = 0
@@ -80,6 +84,8 @@ def read_flights(file):
     flights_array = []
 
     # initialized with the maximum time in the future
+    # variable used to store the absolute earliest release date
+    # to be used to set up the conveyors
     earliest_release_date = datetime.datetime.max
 
     # Read the header string from the file
@@ -99,9 +105,9 @@ def read_flights(file):
 
         read_flight = {}
         eat = parse_time(line[2])
-        eat = datetime.datetime(year, month, day, eat['hours'], eat['minutes'], eat['seconds'])
+        eat = datetime.datetime(year, month, day, eat['hours'], eat['minutes'])
         sat = parse_time(line[3])
-        sat = datetime.datetime(year, month, day, sat['hours'], sat['minutes'], sat['seconds'])
+        sat = datetime.datetime(year, month, day, sat['hours'], sat['minutes'])
 
         if earliest_release_date > eat:
             earliest_release_date = eat
@@ -113,17 +119,14 @@ def read_flights(file):
         read_flight['gate'] = line[5]
         read_flight['baggage'] = line[6]
         read_flight['plane'] = line[7]
-        read_flight['size'] = get_baggage(line[7])
-
+        read_flight['size'] = get_job_size(line[7])
 
         flights_array.append(Flight(read_flight))
 
     return [flights_array, earliest_release_date]
 
 
-JOBS = []
 TERMINALS = [{} for i in range(0, 9)]
-
 
 for terminal in TERMINALS:
     terminal['flight_queue'] = []
@@ -141,11 +144,53 @@ for i in range(1, 6):
 TERMINALS[7]['conveyors'] = [EARLIEST_DATE, EARLIEST_DATE, EARLIEST_DATE]
 TERMINALS[8]['conveyors'] = [EARLIEST_DATE, EARLIEST_DATE]
 
+# place the flights in the appropriate terminal queues
 for flight in FLIGHTS:
     flight_terminal = int(flight.terminal)
     TERMINALS[flight_terminal]['flight_queue'].append(flight)
 
+# create the priority queue
 for terminal in TERMINALS:
     heapq.heapify(terminal['flight_queue'])
 
+# where the scheduling will be stored
+JOBS = []
+max_flow_time = datetime.timedelta(0)
 
+# do the actual scheduling
+for terminal in TERMINALS:
+
+    # while the queue is not empty
+    while terminal['flight_queue']:
+        job = {}
+
+        flight = heapq.heappop(terminal['flight_queue'])
+
+        job['code'] = flight.code
+        job['terminal'] = flight.terminal
+        job['release_date'] = flight.estimated_arrival_time
+        job['size'] = flight.size
+
+        conveyor = get_earliest_available_conveyor(terminal)
+        job['conveyor'] = conveyor
+
+        # the latest between the time the conveyor is available and the time the flight arrives
+        job['start_time'] = max(terminal['conveyors'][conveyor], flight.estimated_arrival_time)
+
+        # update the time the conveyor will be available
+        terminal['conveyors'][conveyor] = flight.estimated_arrival_time + flight.size
+
+        flow_time = job['start_time'] + flight.size - flight.estimated_arrival_time
+        max_flow_time = max_flow_time if max_flow_time >= flow_time else flow_time
+        JOBS.append(job)
+
+
+print(max_flow_time)
+for job in JOBS:
+    print(''.join(['code: ', job['code']]))
+    print(''.join(['size: ', str(job['size'])]))
+    print(''.join(['release date: ', str(job['release_date'])]))
+    print(''.join(['start: ', str(job['start_time'])]))
+    print(''.join(['terminal: ', str(job['terminal'])]))
+    print(''.join(['conveyor: ', str(job['conveyor'])]))
+    print()
