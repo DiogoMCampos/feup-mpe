@@ -6,8 +6,11 @@ import random
 import datetime
 import functools
 import heapq
+import Queue
 
 random.seed()
+
+QUEUE_SIZE = 10
 
 @functools.total_ordering
 class Flight:
@@ -39,6 +42,7 @@ def get_earliest_available_conveyor(term):
     """ return the conveyor that is available first """
     return term['conveyors'].index(min(term['conveyors']))
 
+
 def get_job_size(plane_model):
     """ get the duration of the job according to the airplane model """
     # around 250 people, ~30 minutes
@@ -51,6 +55,7 @@ def get_job_size(plane_model):
 
     # other planes, <= 50 people, 5 minutes
     return datetime.timedelta(minutes=5 + random.randrange(-5, 5))
+
 
 def print_job(jtp):
     """ print the job in a user friendly way """
@@ -66,6 +71,7 @@ def print_job(jtp):
         print(''.join(['terminal: ', str(jtp['terminal'])]))
         print(''.join(['conveyor: ', str(jtp['conveyor'])]))
         print(''.join(['flow_time: ', str(jtp['flow_time'])]))
+
 
 def parse_time(time):
     """ parse the time into an object """
@@ -90,7 +96,6 @@ def parse_time(time):
             date['hours'] = 12 + int(hours)
 
     return date
-
 
 
 def read_flights(file):
@@ -139,6 +144,24 @@ def read_flights(file):
         flights_array.append(Flight(read_flight))
 
     return [flights_array, earliest_release_date]
+
+
+def tabu_search(initial_state, max_iterations):
+    """ run tabu_search on initial_state for a max of max_iterations """
+    current_state = initial_state
+    best_state = initial_state
+    tabu_list = Queue.Queue(maxsize=QUEUE_SIZE)
+
+    # TODO stopping_criteria
+    for i in range(max_iterations):
+        # s’ <- generateNewNonTabuNeighbor(s,tabu_list) <- return best neighbor
+        if tabu_list.full():
+            tabu_list.get()
+        tabu_list.put(s)
+        # best_s <- best(s,s’)
+        # s <- s’
+
+    return current_state
 
 
 TERMINALS = [{} for i in range(0, 9)]
