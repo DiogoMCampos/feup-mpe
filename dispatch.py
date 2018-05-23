@@ -6,7 +6,7 @@ import random
 import datetime
 import functools
 import heapq
-import copy
+import json
 
 random.seed()
 
@@ -31,7 +31,7 @@ class TabuList():
         """ checks if comparable state exists in list """
 
         for state in self.list:
-            if are_states_equal(state, comparable):
+            if state == comparable:
                 return True
 
         return False
@@ -98,6 +98,15 @@ class Job:
         self.end_time = self.start_time + self.size
         self.flow_time = self.end_time - self.release_date
 
+    def copy(self):
+        return Job(self.__dict__)
+
+    def toJson(self):
+        self_json = self.__dict__
+        for key in self_json:
+            self_json[key] = str(self_json[key])
+        return json.dump(self.__dict__, open('results.json', 'a'))
+
     def __lt__(self, other):
         return self.start_time < self.start_time
 
@@ -110,6 +119,43 @@ class Job:
            self.conveyor == other.conveyor and \
            self.flow_time == other.flow_time and \
            self.end_time == other.end_time
+
+
+class State:
+    def __init__(self, terminals, jobs):
+        self.terminals = []
+        self.jobs = []
+
+        for terminal in terminals:
+            if 'conveyors' not in terminal:
+                self.terminals.append({})
+                continue
+
+            terminal_copy = {'conveyors': []}
+            for conveyor in terminal['conveyors']:
+                conveyor_copy = []
+                for job in conveyor:
+                    conveyor_copy.append(job.copy())
+                terminal_copy['conveyors'].append(conveyor_copy)
+            self.terminals.append(terminal_copy)
+
+        for job in jobs:
+            self.jobs.append(job.copy())
+
+    # spaghetti code please fix me
+    # assuming terminals in state are always coherent with jobs
+    def __eq__(self, comparable):
+        if len(self.jobs) != len(comparable.jobs):
+            return False
+
+        for i in range(0, len(self.jobs)):
+            j1 = self.jobs[i]
+            j2 = comparable.jobs[i]
+
+            if j1 != j2:
+                return False
+
+        return True
 
 
 def get_available_date(conveyor):
@@ -144,23 +190,6 @@ def get_earliest_possible_date(job, conveyor):
 def add_job_to_conveyor(job, conveyor):
     conveyor.append(job)
     conveyor.sort()
-
-
-# spaghetti code please fix me
-# assuming terminals in state are always coherent with jobs
-def are_states_equal(state, comparable):
-    """ returns true if states are equal """
-    if len(state['jobs']) != len(comparable['jobs']):
-        return False
-
-    for i in range(0, len(state['jobs'])):
-        j1 = state['jobs'][i]
-        j2 = comparable['jobs'][i]
-
-        if j1 != j2:
-            return
-
-    return True
 
 
 def get_job_size(plane_model):
@@ -250,14 +279,16 @@ def read_flights(file):
     return [flights_array, earliest_release_date]
 
 
-def get_maximum_flow_time(state):
+def get_maximum_flow_time_job(state):
     maximum_flow_time = datetime.timedelta.min
+    mft_job_index = 0
 
-    for job in state['jobs']:
+    for index, job in enumerate(state.jobs):
         if job.flow_time > maximum_flow_time:
             maximum_flow_time = job.flow_time
+            mft_job_index = index
 
-    return maximum_flow_time
+    return state.jobs[mft_job_index]
 
 
 def is_better(state, comparable):
@@ -265,23 +296,24 @@ def is_better(state, comparable):
     if comparable is None:
         return True
 
-    return get_maximum_flow_time(state) < get_maximum_flow_time(comparable)
+    return get_maximum_flow_time_job(state).flow_time < get_maximum_flow_time_job(comparable).flow_time
 
 
 def generate_new_neighbor_list(current_state):
     neighbor_list = []
-    num_jobs = len(current_state['jobs'])
+    num_jobs = len(current_state.jobs)
     for i in range(0, num_jobs - 1):
-        state = copy.deepcopy(current_state)
-        jobs = state['jobs']
-        left_job = state['jobs'][i]
-        right_job = state['jobs'][i + 1]
+        state = State(current_state.terminals, current_state.jobs)
+        jobs = state.jobs
+        left_job = state.jobs[i]
+        right_job = state.jobs[i + 1]
 
         if left_job.terminal != right_job.terminal:
             continue
 
-        left_conveyor = state['terminals'][left_job.terminal]['conveyors'][left_job.conveyor]
-        right_conveyor = state['terminals'][right_job.terminal]['conveyors'][right_job.conveyor]
+        left_conveyor = state.terminals[left_job.terminal]['conveyors'][left_job.conveyor]
+        right_conveyor = state.terminals[right_job.terminal]['conveyors'][right_job.conveyor]
+
         left_conveyor.remove(left_job)
         right_conveyor.remove(right_job)
 
@@ -324,19 +356,24 @@ def generate_new_non_tabu_neighbor(current_state, tabu_list):
 
 def tabu_search(initial_state, max_iterations):
     """ run tabu_search on initial_state for a max of max_iterations """
-    current_state = initial_state
-    best_state = initial_state
+    current_state = State(initial_state.terminals, initial_state.jobs)
+    best_state = State(initial_state.terminals, initial_state.jobs)
     tabu_list = TabuList(maxsize=QUEUE_SIZE)
 
     # TODO additional stopping criteria
     for i in range(max_iterations):
         candidate = generate_new_non_tabu_neighbor(current_state, tabu_list)
-        print("Iteration {}, Maximum Flow Time: {}".format(i, get_maximum_flow_time(candidate)))
+        mft_job = get_maximum_flow_time_job(candidate)
+        print("Iteration {}, Maximum Flow Time: {}".format(i, mft_job.flow_time))
+        print("MFT Job: ")
+        mft_job.print_job()
+        print()
 
         tabu_list.put(current_state)
-        current_state = candidate
+        current_state = State(candidate.terminals, candidate.jobs)
+
         if is_better(candidate, best_state):
-            best_state = candidate
+            best_state = State(candidate.terminals, candidate.jobs)
 
     return best_state
 
@@ -416,15 +453,26 @@ for job in JOBS:
     print()
 
 mft_job.print_job()
-print('Maximum Flow Time after dispatching rules: {}'.format(mft_job.flow_time))
-
-dispatch_state = {'terminals': copy.deepcopy(TERMINALS), 'jobs': copy.deepcopy(JOBS)}
+dispatch_state = State(TERMINALS, JOBS)
 
 tabu_search_jobs = tabu_search(dispatch_state, 10)
 
-#for job in tabu_search_jobs:
-    #job.print_job()
-    #print()
+tabu_mft = get_maximum_flow_time_job(tabu_search_jobs)
+print('Maximum Flow Time after dispatching rules: {}'.format(mft_job.flow_time))
+print('MFT after Tabu Search: {}'.format(tabu_mft.flow_time))
+print("MFT Job: ")
+tabu_mft.print_job()
+print()
 
-tabu_mft = get_maximum_flow_time(tabu_search_jobs)
-print('MFT after Tabu Search: {}'.format(tabu_mft))
+with open("results.json", "w") as myfile:
+    myfile.write("[")
+
+for index in range(0, len(tabu_search_jobs.jobs) - 1):
+    tabu_search_jobs.jobs[index].toJson()
+    with open("results.json", "a") as myfile:
+        myfile.write(",")
+
+tabu_search_jobs.jobs[-1].toJson()
+
+with open("results.json", "a") as myfile:
+    myfile.write("]")
