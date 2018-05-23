@@ -153,7 +153,17 @@ def is_best(job, comparable):
 
 def generate_new_neighbor_list(current_state):
     neighbor_list = []
-    # TODO generate the list
+    num_jobs = len(current_state)
+
+    for i in range(0, num_jobs - 1):
+        left_job = current_state[i]
+        right_job = current_state[i + 1]
+        left_job['conveyor'],  right_job['conveyor'] = right_job['conveyor'], left_job['conveyor']
+        # TODO manage time, probably clreate class Conveyor
+        # remove old start time and duration from conveyon
+        # check start time and duration
+        # if impossible, move to best possible start_time
+
     return neighbor_list
 
 
