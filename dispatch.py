@@ -38,6 +38,40 @@ class Flight:
         return self.estimated_arrival_time == other.estimated_arrival_time
 
 
+class Job:
+    """ represents a job allocating a flight to a conveyor """
+
+    def __init__(self, plane_dict):
+        if plane_dict:
+            self.empty = False
+            self.code = plane_dict['code']
+            self.terminal = plane_dict['terminal']
+            self.release_date = plane_dict['release_date']
+            self.size = plane_dict['size']
+            self.conveyor = plane_dict['conveyor']
+            self.start_time = plane_dict['start_time']
+            self.flow_time = plane_dict['flow_time']
+            self.end_time = self.start_time + self.size
+        else:
+            self.empty = True
+
+    def print_job(self):
+        if self.empty:
+            print('empty job')
+        else:
+            print('code: {}'.format(self.code))
+            print('size: {}'.format(self.size))
+            print('release date: {}'.format(self.release_date))
+            print('start time: {}'.format(self.start_time))
+            print('terminal: {}'.format(self.terminal))
+            print('conveyor: {}'.format(self.conveyor))
+            print('flow time: {}'.format(self.flow_time))
+            print('end time: {}'.format(self.end_time))
+
+    def __lt__(self, other):
+        return self.start_time < self.start_time
+
+
 def get_earliest_available_conveyor(term):
     """ return the conveyor that is available first """
     return term['conveyors'].index(min(term['conveyors']))
@@ -55,22 +89,6 @@ def get_job_size(plane_model):
 
     # other planes, <= 50 people, 5 minutes
     return datetime.timedelta(minutes=5 + random.randrange(-5, 5))
-
-
-def print_job(jtp):
-    """ print the job in a user friendly way """
-
-    if not jtp:
-        print(jtp)
-
-    else:
-        print(''.join(['code: ', jtp['code']]))
-        print(''.join(['size: ', str(jtp['size'])]))
-        print(''.join(['release date: ', str(jtp['release_date'])]))
-        print(''.join(['start: ', str(jtp['start_time'])]))
-        print(''.join(['terminal: ', str(jtp['terminal'])]))
-        print(''.join(['conveyor: ', str(jtp['conveyor'])]))
-        print(''.join(['flow_time: ', str(jtp['flow_time'])]))
 
 
 def parse_time(time):
@@ -240,9 +258,9 @@ for terminal in TERMINALS:
 JOBS = []
 
 max_flow_time = datetime.timedelta(0)
-mft_job = {}
+mft_job = Job({})
 
-print_job(mft_job)
+mft_job.print_job()
 print(''.join(['maximum flow time: ', str(max_flow_time)]))
 
 # do the actual scheduling
@@ -271,6 +289,8 @@ for terminal in TERMINALS:
         flow_time = job['start_time'] + flight.size - flight.estimated_arrival_time
         job['flow_time'] = flow_time
 
+        job = Job(job)
+
         if flow_time > max_flow_time:
             max_flow_time = flow_time
             mft_job = job
@@ -279,8 +299,8 @@ for terminal in TERMINALS:
 
 
 for job in JOBS:
-    print_job(job)
+    job.print_job()
     print()
 
 print('Maximum flow time')
-print_job(mft_job)
+mft_job.print_job()
