@@ -6,11 +6,36 @@ import random
 import datetime
 import functools
 import heapq
-import queue
+import copy
 
 random.seed()
 
 QUEUE_SIZE = 10
+EARLIEST_DATE = datetime.datetime.min
+
+
+class TabuList():
+    def __init__(self, maxsize):
+        self.maxsize = maxsize
+        self.list = list()
+
+    def full(self):
+        return len(self.list) == self.maxsize
+
+    def put(self, item):
+        if self.full():
+            self.list.remove(self.list[0])
+        self.list.append(item)
+
+    def __contains__(self, comparable):
+        """ checks if comparable state exists in list """
+
+        for state in self.list:
+            if are_states_equal(state, comparable):
+                return True
+
+        return False
+
 
 @functools.total_ordering
 class Flight:
@@ -45,10 +70,10 @@ class Job:
         if plane_dict:
             self.empty = False
             self.code = plane_dict['code']
-            self.terminal = plane_dict['terminal']
+            self.terminal = int(plane_dict['terminal'])
             self.release_date = plane_dict['release_date']
             self.size = plane_dict['size']
-            self.conveyor = plane_dict['conveyor']
+            self.conveyor = int(plane_dict['conveyor'])
             self.start_time = plane_dict['start_time']
             self.flow_time = plane_dict['flow_time']
             self.end_time = self.start_time + self.size
@@ -68,16 +93,52 @@ class Job:
             print('flow time: {}'.format(self.flow_time))
             print('end time: {}'.format(self.end_time))
 
+    def update_start_time(self, start_time):
+        self.start_time = start_time
+        self.end_time = self.start_time + self.size
+        self.flow_time = self.end_time - self.release_date
+
     def __lt__(self, other):
         return self.start_time < self.start_time
+
+    def __eq__(self, other):
+        return self.code == other.code and \
+           self.size == other.size and \
+           self.release_date == other.release_date and \
+           self.start_time == other.start_time and \
+           self.terminal == other.terminal and \
+           self.conveyor == other.conveyor and \
+           self.flow_time == other.flow_time and \
+           self.end_time == other.end_time
 
 
 def get_available_date(conveyor):
     """ return earliest available date for specific conveyor """
     if not conveyor:
-        return datetime.datetime.min
+        return EARLIEST_DATE
     else:
         return conveyor[-1].end_time
+
+
+def get_earliest_available_conveyor(term):
+    """ return the conveyor that is available first """
+    earliest_dates = [get_available_date(c) for c in term['conveyors']]
+    return earliest_dates.index(min(earliest_dates))
+
+
+def get_earliest_possible_date(job, conveyor):
+    """ return earliest available date for specific job in a specific conveyor """
+    job_min_end_date = job.release_date + job.size
+    if job_min_end_date < conveyor[0].start_time:
+        return job.release_date
+
+    for index in range(0, len(conveyor) - 1):
+        left_comparable = conveyor[index]
+        right_comparable = conveyor[index + 1]
+        if job.release_date >= left_comparable.end_time and job_min_end_date <= right_comparable.start_time:
+            return job.release_date
+
+    return max(conveyor[-1].end_time, job.release_date)
 
 
 def add_job_to_conveyor(job, conveyor):
@@ -85,10 +146,21 @@ def add_job_to_conveyor(job, conveyor):
     conveyor.sort()
 
 
-def get_earliest_available_conveyor(term):
-    """ return the conveyor that is available first """
-    earliest_dates = [get_available_date(c) for c in term['conveyors']]
-    return earliest_dates.index(min(earliest_dates))
+# spaghetti code please fix me
+# assuming terminals in state are always coherent with jobs
+def are_states_equal(state, comparable):
+    """ returns true if states are equal """
+    if len(state['jobs']) != len(comparable['jobs']):
+        return False
+
+    for i in range(0, len(state['jobs'])):
+        j1 = state['jobs'][i]
+        j2 = comparable['jobs'][i]
+
+        if j1 != j2:
+            return
+
+    return True
 
 
 def get_job_size(plane_model):
@@ -178,23 +250,53 @@ def read_flights(file):
     return [flights_array, earliest_release_date]
 
 
-def is_best(job, comparable):
-    """ returns true if job has lower flow time (is best) than comparable """
-    return job['flow_time'] < comparable['flow_time']
+def get_maximum_flow_time(state):
+    maximum_flow_time = datetime.timedelta.min
+
+    for job in state['jobs']:
+        if job.flow_time > maximum_flow_time:
+            maximum_flow_time = job.flow_time
+
+    return maximum_flow_time
+
+
+def is_better(state, comparable):
+    """ returns true if state has maximum flow time lower than comparable """
+    if comparable is None:
+        return True
+
+    return get_maximum_flow_time(state) < get_maximum_flow_time(comparable)
 
 
 def generate_new_neighbor_list(current_state):
     neighbor_list = []
-    num_jobs = len(current_state)
-
+    num_jobs = len(current_state['jobs'])
     for i in range(0, num_jobs - 1):
-        left_job = current_state[i]
-        right_job = current_state[i + 1]
-        left_job['conveyor'],  right_job['conveyor'] = right_job['conveyor'], left_job['conveyor']
-        # TODO manage time, probably clreate class Conveyor
-        # remove old start time and duration from conveyon
-        # check start time and duration
-        # if impossible, move to best possible start_time
+        state = copy.deepcopy(current_state)
+        jobs = state['jobs']
+        left_job = state['jobs'][i]
+        right_job = state['jobs'][i + 1]
+
+        if left_job.terminal != right_job.terminal:
+            continue
+
+        left_conveyor = state['terminals'][left_job.terminal]['conveyors'][left_job.conveyor]
+        right_conveyor = state['terminals'][right_job.terminal]['conveyors'][right_job.conveyor]
+        left_conveyor.remove(left_job)
+        right_conveyor.remove(right_job)
+
+        left_job.conveyor,  right_job.conveyor = right_job.conveyor, left_job.conveyor
+
+        earliest_left_date = get_earliest_possible_date(left_job, right_conveyor)
+        earliest_right_date = get_earliest_possible_date(right_job, left_conveyor)
+
+        left_job.update_start_time(earliest_left_date)
+        right_job.update_start_time(earliest_right_date)
+
+        add_job_to_conveyor(left_job, right_conveyor)
+        add_job_to_conveyor(right_job, left_conveyor)
+
+        neighbor_list.append(state)
 
     return neighbor_list
 
@@ -202,7 +304,7 @@ def generate_new_neighbor_list(current_state):
 def get_best_state(state_list):
     best_state = None
     for state in state_list:
-        if is_best(state, best_state):
+        if is_better(state, best_state):
             best_state = state
 
     return best_state
@@ -214,31 +316,29 @@ def generate_new_non_tabu_neighbor(current_state, tabu_list):
     non_tabu_neighbor_list = [neighbor for neighbor in neighbor_list
                               if neighbor not in tabu_list]
 
-    new_state = get_best_state(non_tabu_neighbor_list)
-
-    return new_state
+    if not non_tabu_neighbor_list:
+        return current_state
+    else:
+        return get_best_state(non_tabu_neighbor_list)
 
 
 def tabu_search(initial_state, max_iterations):
     """ run tabu_search on initial_state for a max of max_iterations """
     current_state = initial_state
     best_state = initial_state
-    tabu_list = Queue.Queue(maxsize=QUEUE_SIZE)
+    tabu_list = TabuList(maxsize=QUEUE_SIZE)
 
     # TODO additional stopping criteria
     for i in range(max_iterations):
         candidate = generate_new_non_tabu_neighbor(current_state, tabu_list)
+        print("Iteration {}, Maximum Flow Time: {}".format(i, get_maximum_flow_time(candidate)))
 
-        if tabu_list.full():
-            tabu_list.get()
-        tabu_list.put(s)
-
-        if is_best(candidate, best_state):
+        tabu_list.put(current_state)
+        current_state = candidate
+        if is_better(candidate, best_state):
             best_state = candidate
 
-        current_state = candidate
-
-    return current_state
+    return best_state
 
 
 TERMINALS = [{} for i in range(0, 9)]
@@ -315,5 +415,16 @@ for job in JOBS:
     job.print_job()
     print()
 
-print('Maximum flow time')
 mft_job.print_job()
+print('Maximum Flow Time after dispatching rules: {}'.format(mft_job.flow_time))
+
+dispatch_state = {'terminals': copy.deepcopy(TERMINALS), 'jobs': copy.deepcopy(JOBS)}
+
+tabu_search_jobs = tabu_search(dispatch_state, 10)
+
+#for job in tabu_search_jobs:
+    #job.print_job()
+    #print()
+
+tabu_mft = get_maximum_flow_time(tabu_search_jobs)
+print('MFT after Tabu Search: {}'.format(tabu_mft))
