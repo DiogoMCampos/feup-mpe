@@ -6,7 +6,7 @@ import random
 import datetime
 import functools
 import heapq
-import Queue
+import queue
 
 random.seed()
 
@@ -146,20 +146,55 @@ def read_flights(file):
     return [flights_array, earliest_release_date]
 
 
+def is_best(job, comparable):
+    """ returns true if job has lower flow time (is best) than comparable """
+    return job['flow_time'] < comparable['flow_time']
+
+
+def generate_new_neighbor_list(current_state):
+    neighbor_list = []
+    # TODO generate the list
+    return neighbor_list
+
+
+def get_best_state(state_list):
+    best_state = None
+    for state in state_list:
+        if is_best(state, best_state):
+            best_state = state
+
+    return best_state
+
+
+def generate_new_non_tabu_neighbor(current_state, tabu_list):
+    """ get best non tabu neighbor given current state and tabu list """
+    neighbor_list = generate_new_neighbor_list(current_state)
+    non_tabu_neighbor_list = [neighbor for neighbor in neighbor_list
+                              if neighbor not in tabu_list]
+
+    new_state = get_best_state(non_tabu_neighbor_list)
+
+    return new_state
+
+
 def tabu_search(initial_state, max_iterations):
     """ run tabu_search on initial_state for a max of max_iterations """
     current_state = initial_state
     best_state = initial_state
     tabu_list = Queue.Queue(maxsize=QUEUE_SIZE)
 
-    # TODO stopping_criteria
+    # TODO additional stopping criteria
     for i in range(max_iterations):
-        # s’ <- generateNewNonTabuNeighbor(s,tabu_list) <- return best neighbor
+        candidate = generate_new_non_tabu_neighbor(current_state, tabu_list)
+
         if tabu_list.full():
             tabu_list.get()
         tabu_list.put(s)
-        # best_s <- best(s,s’)
-        # s <- s’
+
+        if is_best(candidate, best_state):
+            best_state = candidate
+
+        current_state = candidate
 
     return current_state
 
