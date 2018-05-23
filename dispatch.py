@@ -72,9 +72,23 @@ class Job:
         return self.start_time < self.start_time
 
 
+def get_available_date(conveyor):
+    """ return earliest available date for specific conveyor """
+    if not conveyor:
+        return datetime.datetime.min
+    else:
+        return conveyor[-1].end_time
+
+
+def add_job_to_conveyor(job, conveyor):
+    conveyor.append(job)
+    conveyor.sort()
+
+
 def get_earliest_available_conveyor(term):
     """ return the conveyor that is available first """
-    return term['conveyors'].index(min(term['conveyors']))
+    earliest_dates = [get_available_date(c) for c in term['conveyors']]
+    return earliest_dates.index(min(earliest_dates))
 
 
 def get_job_size(plane_model):
@@ -239,11 +253,11 @@ INPUT_FILE.close()
 # set up conveyors to be available at the earliest release date possible
 # set up conveyors in terminal 1 to 5
 for i in range(1, 6):
-    TERMINALS[i]['conveyors'] = [EARLIEST_DATE, EARLIEST_DATE, EARLIEST_DATE]
+    TERMINALS[i]['conveyors'] = [list(), list(), list()]
 
 # set up the rest of the terminals
-TERMINALS[7]['conveyors'] = [EARLIEST_DATE, EARLIEST_DATE, EARLIEST_DATE]
-TERMINALS[8]['conveyors'] = [EARLIEST_DATE, EARLIEST_DATE]
+TERMINALS[7]['conveyors'] = [list(), list(), list()]
+TERMINALS[8]['conveyors'] = [list(), list()]
 
 # place the flights in the appropriate terminal queues
 for flight in FLIGHTS:
@@ -281,15 +295,14 @@ for terminal in TERMINALS:
         job['conveyor'] = conveyor
 
         # the latest between the time the conveyor is available and the time the flight arrives
-        job['start_time'] = max(terminal['conveyors'][conveyor], flight.estimated_arrival_time)
-
-        # update the time the conveyor will be available
-        terminal['conveyors'][conveyor] = flight.estimated_arrival_time + flight.size
+        job['start_time'] = max(get_available_date(terminal['conveyors'][conveyor]),
+                                flight.estimated_arrival_time)
 
         flow_time = job['start_time'] + flight.size - flight.estimated_arrival_time
         job['flow_time'] = flow_time
 
         job = Job(job)
+        add_job_to_conveyor(job, terminal['conveyors'][conveyor])
 
         if flow_time > max_flow_time:
             max_flow_time = flow_time
