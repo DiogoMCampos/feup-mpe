@@ -10,7 +10,8 @@ import json
 
 random.seed()
 
-QUEUE_SIZE = 10
+TABU_LIST_SIZE = 10
+TABU_SEARCH_ITERATIONS = 20
 EARLIEST_DATE = datetime.datetime.min
 
 
@@ -358,7 +359,7 @@ def tabu_search(initial_state, max_iterations):
     """ run tabu_search on initial_state for a max of max_iterations """
     current_state = State(initial_state.terminals, initial_state.jobs)
     best_state = State(initial_state.terminals, initial_state.jobs)
-    tabu_list = TabuList(maxsize=QUEUE_SIZE)
+    tabu_list = TabuList(maxsize=TABU_LIST_SIZE)
 
     # TODO additional stopping criteria
     for i in range(max_iterations):
@@ -455,7 +456,7 @@ for job in JOBS:
 mft_job.print_job()
 dispatch_state = State(TERMINALS, JOBS)
 
-tabu_search_jobs = tabu_search(dispatch_state, 10)
+tabu_search_jobs = tabu_search(dispatch_state, TABU_SEARCH_ITERATIONS)
 
 tabu_mft = get_maximum_flow_time_job(tabu_search_jobs)
 print('Maximum Flow Time after dispatching rules: {}'.format(mft_job.flow_time))
