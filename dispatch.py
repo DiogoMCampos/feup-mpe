@@ -10,7 +10,8 @@ import json
 
 random.seed()
 
-QUEUE_SIZE = 10
+TABU_LIST_SIZE = 10
+TABU_SEARCH_ITERATIONS = 10
 EARLIEST_DATE = datetime.datetime.min
 
 
@@ -101,11 +102,11 @@ class Job:
     def copy(self):
         return Job(self.__dict__)
 
-    def toJson(self):
+    def toJson(self, filename):
         self_json = self.__dict__
         for key in self_json:
             self_json[key] = str(self_json[key])
-        return json.dump(self.__dict__, open('results.json', 'a'))
+        return json.dump(self.__dict__, open(filename, 'a'))
 
     def __lt__(self, other):
         return self.start_time < self.start_time
@@ -180,8 +181,7 @@ def get_earliest_possible_date(job, conveyor):
 
     for index in range(0, len(conveyor) - 1):
         left_comparable = conveyor[index]
-        right_comparable = conveyor[index + 1]
-        if job.release_date >= left_comparable.end_time and job_min_end_date <= right_comparable.start_time:
+        if job.release_date >= left_comparable.end_time:
             return job.release_date
 
     return max(conveyor[-1].end_time, job.release_date)
@@ -190,6 +190,12 @@ def get_earliest_possible_date(job, conveyor):
 def add_job_to_conveyor(job, conveyor):
     conveyor.append(job)
     conveyor.sort()
+    for index in range(0, len(conveyor) - 1):
+        left_job = conveyor[index]
+        right_job = conveyor[index + 1]
+
+        if right_job.start_time <= left_job.end_time:
+            right_job.update_start_time(left_job.end_time)
 
 
 def get_job_size(plane_model):
@@ -358,7 +364,7 @@ def tabu_search(initial_state, max_iterations):
     """ run tabu_search on initial_state for a max of max_iterations """
     current_state = State(initial_state.terminals, initial_state.jobs)
     best_state = State(initial_state.terminals, initial_state.jobs)
-    tabu_list = TabuList(maxsize=QUEUE_SIZE)
+    tabu_list = TabuList(maxsize=TABU_LIST_SIZE)
 
     # TODO additional stopping criteria
     for i in range(max_iterations):
@@ -452,27 +458,48 @@ for job in JOBS:
     job.print_job()
     print()
 
-mft_job.print_job()
 dispatch_state = State(TERMINALS, JOBS)
 
-tabu_search_jobs = tabu_search(dispatch_state, 10)
+if len(sys.argv) > 2:
+    TABU_SEARCH_ITERATIONS = sys.argv[2]
+
+tabu_search_jobs = tabu_search(dispatch_state, int(TABU_SEARCH_ITERATIONS))
 
 tabu_mft = get_maximum_flow_time_job(tabu_search_jobs)
 print('Maximum Flow Time after dispatching rules: {}'.format(mft_job.flow_time))
+print("MFT Job: ")
+mft_job.print_job()
+print()
 print('MFT after Tabu Search: {}'.format(tabu_mft.flow_time))
 print("MFT Job: ")
 tabu_mft.print_job()
 print()
 
+with open("results_dispatch.json", "w") as myfile:
+    myfile.write("[")
+
+for index in range(0, len(dispatch_state.jobs) - 1):
+    dispatch_state.jobs[index].toJson("results_dispatch.json")
+    with open("results_dispatch.json", "a") as myfile:
+        myfile.write(",")
+
+dispatch_state.jobs[-1].toJson("results_dispatch.json")
+
+with open("results_dispatch.json", "a") as myfile:
+    myfile.write("]")
+
 with open("results.json", "w") as myfile:
     myfile.write("[")
 
 for index in range(0, len(tabu_search_jobs.jobs) - 1):
-    tabu_search_jobs.jobs[index].toJson()
+    tabu_search_jobs.jobs[index].toJson("results.json")
     with open("results.json", "a") as myfile:
         myfile.write(",")
 
-tabu_search_jobs.jobs[-1].toJson()
+tabu_search_jobs.jobs[-1].toJson("results.json")
 
 with open("results.json", "a") as myfile:
     myfile.write("]")
+
+with open("results_list.csv", "a") as myfile:
+    myfile.write('{} {}\n'.format(mft_job.flow_time, tabu_mft.flow_time))
