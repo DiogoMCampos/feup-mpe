@@ -459,11 +459,15 @@ for job in JOBS:
     print()
 
 dispatch_state = State(TERMINALS, JOBS)
+<<<<<<< HEAD
 
 if len(sys.argv) > 2:
     TABU_SEARCH_ITERATIONS = sys.argv[2]
 
 tabu_search_jobs = tabu_search(dispatch_state, int(TABU_SEARCH_ITERATIONS))
+=======
+tabu_search_jobs = tabu_search(dispatch_state, TABU_SEARCH_ITERATIONS)
+>>>>>>> 40f8a524c4ac14b2183c5343e44739aa26b52b1b
 
 tabu_mft = get_maximum_flow_time_job(tabu_search_jobs)
 print('Maximum Flow Time after dispatching rules: {}'.format(mft_job.flow_time))
