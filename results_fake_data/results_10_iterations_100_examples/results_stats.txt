@@ -1,0 +1,4 @@
+Number of examples: 100
+Number of improvements: 63
+Improvement Percentage: 0.63
+Improvement Average: 5.888888888888889
