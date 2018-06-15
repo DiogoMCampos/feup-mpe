@@ -1,4 +1,5 @@
 Number of examples: 100
 Number of improvements: 13
-Improvement Percentage: 0.13
+Dispatching Average: 196.86
 Improvement Average: 3.1538461538461537
+Improvement Percentage: 1.6020756648614007%

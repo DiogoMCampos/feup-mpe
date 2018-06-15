@@ -41,10 +41,15 @@ no_zeros = diff_int.count(0)
 no_improvements = no_examples - no_zeros
 improvement_values = [x for x in diff_int if x != 0]
 improvement_average = sum(improvement_values) / len(improvement_values)
-improvement_percentage = no_improvements / no_examples
+dispatch_list_delta = [datetime.datetime.strptime(timestamp, '%H:%M:%S') -
+                       datetime.datetime.min for timestamp in dispatch_list]
+dispatch_list_int = [int(x.seconds / 60) for x in dispatch_list_delta]
+dispatch_list_average = sum(dispatch_list_int) / len(dispatch_list_int)
+improvement_percentage = improvement_average / dispatch_list_average * 100
 
 with open(dest_file, 'w') as destfile:
     destfile.write('Number of examples: {}\n'.format(no_examples))
     destfile.write('Number of improvements: {}\n'.format(no_improvements))
-    destfile.write('Improvement Percentage: {}\n'.format(improvement_percentage))
+    destfile.write('Dispatching Average: {}\n'.format(dispatch_list_average))
     destfile.write('Improvement Average: {}\n'.format(improvement_average))
+    destfile.write('Improvement Percentage: {}%\n'.format(improvement_percentage))
