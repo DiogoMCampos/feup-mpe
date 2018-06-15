@@ -2,8 +2,12 @@ import csv
 import sys
 import datetime
 
-results_list_file = sys.argv[1]
-dest_file = sys.argv[2]
+if len(sys.argv) == 1:
+    results_list_file = 'results_list.csv'
+    dest_file = 'results_stats.txt'
+else:
+    results_list_file = sys.argv[1]
+    dest_file = sys.argv[2]
 
 dispatch_list = []
 tabu_list = []
