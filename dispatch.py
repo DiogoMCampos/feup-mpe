@@ -475,31 +475,5 @@ print("MFT Job: ")
 tabu_mft.print_job()
 print()
 
-with open("results_dispatch.json", "w") as myfile:
-    myfile.write("[")
-
-for index in range(0, len(dispatch_state.jobs) - 1):
-    dispatch_state.jobs[index].toJson("results_dispatch.json")
-    with open("results_dispatch.json", "a") as myfile:
-        myfile.write(",")
-
-dispatch_state.jobs[-1].toJson("results_dispatch.json")
-
-with open("results_dispatch.json", "a") as myfile:
-    myfile.write("]")
-
-with open("results.json", "w") as myfile:
-    myfile.write("[")
-
-for index in range(0, len(tabu_search_jobs.jobs) - 1):
-    tabu_search_jobs.jobs[index].toJson("results.json")
-    with open("results.json", "a") as myfile:
-        myfile.write(",")
-
-tabu_search_jobs.jobs[-1].toJson("results.json")
-
-with open("results.json", "a") as myfile:
-    myfile.write("]")
-
 with open("results_list.csv", "a") as myfile:
     myfile.write('{} {}\n'.format(mft_job.flow_time, tabu_mft.flow_time))
